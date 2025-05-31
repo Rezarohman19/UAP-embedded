@@ -1,0 +1,80 @@
+#define BLYNK_TEMPLATE_ID "TMPL6fKuwWNwQ"
+#define BLYNK_TEMPLATE_NAME "Smart Farming"
+#define BLYNK_AUTH_TOKEN "st1MpOfcs5Y2hGOA7VFsv1ReBLDeAQRJ"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+
+#define DHTPIN D1
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// FIX: Change LDR_PIN from D0 to A0 for analogRead()
+#define LDR_PIN A0 // A0 is the only analog input on ESP8266
+#define LED_PIN D2
+
+char ssid[] = "Virus";
+char pass[] = "rezarezi1";
+char auth[] = BLYNK_AUTH_TOKEN;
+
+int threshold = 500;       // Default threshold LDR (bisa diubah dari Blynk)
+int ldrValue = 0;
+
+BlynkTimer timer;
+
+// Fungsi membaca sensor dan kirim ke Blynk
+void sendSensor() {
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+
+  // Cek apakah data valid
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Gagal membaca data DHT22");
+    return;
+  }
+
+  ldrValue = analogRead(LDR_PIN); // Read the raw LDR value (0-1023)
+
+  // OPTIONAL: Scale LDR value if your Blynk widget range is different from 0-1023
+  // Assuming your Blynk gauge for V2 is set to 0-4095. Adjust 4095 if needed.
+  int scaledLdrValue = map(ldrValue, 0, 1023, 0, 4095);
+
+  // Kirim data ke Blynk
+  Blynk.virtualWrite(V0, temperature);
+  Blynk.virtualWrite(V1, humidity);
+  Blynk.virtualWrite(V2, scaledLdrValue); // Send the scaled LDR value to Blynk
+
+  // Logika LED berdasarkan threshold cahaya
+  if (ldrValue < threshold) { // Use the raw ldrValue for logic if threshold is also 0-1023 based
+    digitalWrite(LED_PIN, HIGH); // Menyala jika malam
+    Blynk.virtualWrite(V3, 1);   // Kirim status LED ke Blynk
+  } else {
+    digitalWrite(LED_PIN, LOW);  // Mati jika siang
+    Blynk.virtualWrite(V3, 0);
+  }
+}
+
+// Fungsi menerima nilai threshold dari Blynk
+BLYNK_WRITE(V4) {
+  threshold = param.asInt();
+  // It's good practice to print the received threshold to Serial to verify
+  Serial.print("Threshold received from Blynk: ");
+  Serial.println(threshold);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  dht.begin();
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW); // Ensure LED is off at start
+
+  timer.setInterval(2000L, sendSensor); // setiap 2 detik
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
