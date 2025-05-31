@@ -1,0 +1,65 @@
+#include <DHT.h>                // Library untuk sensor DHT22
+#include <Wire.h>              // Diperlukan untuk komunikasi I2C (untuk LCD)
+#include <LiquidCrystal_I2C.h> // Library untuk LCD I2C
+
+// Konfigurasi Sensor DHT22
+#define DHTPIN 2           // Pin data DHT22 terhubung ke pin Digital 2 Arduino
+#define DHTTYPE DHT11      // Tipe sensor adalah DHT22
+DHT dht(DHTPIN, DHTTYPE);  // Membuat objek DHT
+
+// Konfigurasi LCD I2C
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Inisialisasi LCD: alamat I2C, 16 kolom, 2 baris
+
+// Konfigurasi LED
+#define LED_PIN 7          // Pin digital tempat LED terhubung
+
+void setup() {
+  dht.begin();               // Memulai sensor DHT
+  pinMode(LED_PIN, OUTPUT);  // Mengatur pin LED sebagai OUTPUT
+  Serial.begin(9600);        // Memulai komunikasi serial untuk debugging
+
+  // Inisialisasi LCD
+  lcd.init();                // Menginisialisasi LCD
+  lcd.backlight();           // Menghidupkan lampu latar LCD
+  lcd.print("Memulai Sensor");
+  lcd.setCursor(0, 1);
+  lcd.print("Harap Tunggu...");
+  delay(2000);
+  lcd.clear();
+}
+
+void loop() {
+  // Membaca suhu dan kelembaban dari DHT22
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+
+  // Cek apakah pembacaan gagal
+  if (isnan(humidity) || isnan(temperature)) {
+    lcd.setCursor(0, 0);
+    lcd.print("DHT Gagal");
+    lcd.setCursor(0, 1);
+    lcd.print("Cek Koneksi!");
+  } else {
+    // Logika LED berdasarkan suhu
+    if (temperature > 36) {
+      digitalWrite(LED_PIN, HIGH);  // Suhu panas, LED nyala
+      Serial.println("Panas - LED ON");
+    } else {
+      digitalWrite(LED_PIN, LOW);   // Suhu dingin, LED mati
+      Serial.println("Dingin - LED OFF");
+    }
+    // Tampilkan suhu dan kelembaban ke LCD
+    lcd.setCursor(0, 0);
+    lcd.print("Suhu: ");
+    lcd.print(temperature, 1);
+    lcd.print((char)223);
+    lcd.print("C    ");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Kelembapan: ");
+    lcd.print(humidity, 0);
+    lcd.print("%   ");
+  }
+
+  delay(1000); // Jeda antar pembacaan
+}
